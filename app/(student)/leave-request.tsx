@@ -28,14 +28,14 @@ export default function LeaveRequestScreen() {
       // If parent is applying, we use their linked child studentId
       const targetStudentId = (role === 'parent' && (user as any).studentId) ? (user as any).studentId : user.id;
       
-      let classId = user.classId;
+      let className = (user as any).className || 'Unknown';
       if (role === 'parent' && targetStudentId) {
           const { getStudentById } = require("@/services/databaseService");
           const s = await getStudentById(targetStudentId);
-          if (s) classId = (s as any).className || 'C001'; // className is used as ID in some parts of dbService
+          if (s) className = s.class_name || 'Unknown';
       }
 
-      await leaveRepo.submitRequest(targetStudentId, classId || 'C001', today, today, 'personal', reason);
+      await leaveRepo.submitRequest(targetStudentId, className, today, today, 'personal', reason);
 
       const successMsg = role === 'parent' 
         ? 'रजा अर्ज यशस्वीरित्या शिक्षकांकडे पाठवण्यात आला आहे.'
@@ -44,7 +44,8 @@ export default function LeaveRequestScreen() {
       Alert.alert('यशस्वी', successMsg, [
         { text: 'ठीक आहे', onPress: () => router.back() }
       ]);
-    } catch {
+    } catch (err) {
+      console.error(err);
       Alert.alert('त्रुटी', 'विनंती पाठवता आली नाही.');
     } finally {
       setLoading(false);

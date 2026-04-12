@@ -2,203 +2,214 @@ import { MarathiText } from "@/components/MarathiText";
 import { StudentCard } from "@/components/StudentCard";
 import { t } from "@/localization";
 import {
-    getStudentById,
-    saveAttendanceRecord,
+    getStudentsByClass,
+    bulkSaveAttendance,
+    AttendanceRecord
 } from "@/services/databaseService";
-import { useSettingsStore } from "@/store/settingsStore";
-import { useCameraPermissions } from "expo-camera";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
     Alert,
-    ScrollView,
+    FlatList,
     StyleSheet,
+    TextInput,
     TouchableOpacity,
     View,
+    ActivityIndicator
 } from "react-native";
+
+type AttendanceStatus = "Present" | "Absent" | "Verified" | "Leave";
 
 export default function ManualVerificationScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const language = useSettingsStore((state) => state.language) || "en";
-  const [permission, requestPermission] = useCameraPermissions();
-  const [missingStudents, setMissingStudents] = useState<
-    { id: string; name: string; rollNumber: number }[]
-  >([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [captured, setCaptured] = useState<string[]>([]);
-
+  
   const className = params.className as string;
   const timeSlot = params.timeSlot as string;
+  
+  const [loading, setLoading] = useState(true);
+  const [students, setStudents] = useState<any[]>([]);
+  const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>({});
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
-  const missingIds: string[] = useMemo(() => {
-    if (!params.missing) return [];
+  const detectedIds = useMemo(() => {
+    if (!params.detected) return [];
     try {
-      return JSON.parse(String(params.missing));
+      return JSON.parse(String(params.detected));
     } catch {
       return [];
     }
-  }, [params.missing]);
+  }, [params.detected]);
 
   useEffect(() => {
-    Promise.all(missingIds.map((id) => getStudentById(id))).then((rows) => {
-      setMissingStudents(rows.filter(Boolean) as any);
-    });
-  }, [missingIds]);
+    const load = async () => {
+        try {
+            const rows = await getStudentsByClass(className);
+            setStudents(rows);
+            
+            // Initialize attendance state
+            const initial: Record<string, AttendanceStatus> = {};
+            rows.forEach(s => {
+                initial[s.id] = detectedIds.includes(s.id) ? "Present" : "Absent";
+            });
+            setAttendance(initial);
+        } finally {
+            setLoading(false);
+        }
+    };
+    load();
+  }, [className, detectedIds]);
 
-  const onRequestPermission = async () => {
-    const result = await requestPermission();
-    if (result.status !== "granted") {
-      Alert.alert(
-        "Permission Required",
-        "Camera access is needed for manual verification.",
-      );
+  const toggleStatus = (studentId: string) => {
+      setAttendance(prev => {
+          const current = prev[studentId];
+          let next: AttendanceStatus = "Present";
+          if (current === "Present") next = "Absent";
+          else if (current === "Absent") next = "Leave";
+          else next = "Present";
+          
+          return { ...prev, [studentId]: next };
+      });
+  };
+
+  const handleSaveAll = async () => {
+    setIsSaving(true);
+    try {
+        const date = new Date().toISOString().split('T')[0];
+        const time = new Date().toLocaleTimeString();
+        
+        const records: AttendanceRecord[] = students.map(s => ({
+            id: `MAN-${s.id}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            studentId: s.id,
+            date,
+            time,
+            status: (attendance[s.id] as any) || "Absent",
+            confidence: 1.0,
+            className: className || s.className,
+            timeSlot: timeSlot || "Manual"
+        }));
+
+        await bulkSaveAttendance(records);
+        Alert.alert("यशस्वी", "हजेरी जतन केली गेली आहे.");
+        router.replace("/(app)/dashboard");
+    } catch (e: any) {
+        console.error("Manual Save Error:", e);
+        Alert.alert("साठवण्यात चूक (Save Error)", `हजेरी साठवता आली नाही. \n\nतांत्रिक त्रुटी (Technical Error): ${e?.message || JSON.stringify(e)}`);
+    } finally {
+        setIsSaving(false);
     }
   };
 
-  const markVerified = async () => {
-    const nextId = missingStudents[currentIndex]?.id;
-    if (!nextId) return;
+  const filteredStudents = students.filter(s => 
+    s.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    s.rollNumber.toString().includes(searchQuery)
+  );
 
-    await saveAttendanceRecord({
-      id: `MAN-${nextId}-${Date.now()}`,
-      studentId: nextId,
-      date: new Date().toISOString().split("T")[0],
-      time: new Date().toLocaleTimeString(),
-      status: "Verified",
-      confidence: 1.0,
-      className: className || "General",
-      timeSlot: timeSlot || "Manual"
-    });
-
-    setCaptured((prev) => [...prev, nextId]);
-    setCurrentIndex((prev) => prev + 1);
-  };
-
-  const finishVerification = () => {
-    Alert.alert("Success", "Manual verification saved locally.", [
-      {
-        text: "OK",
-        onPress: () => router.replace("/(teacher)/history" as any),
-      },
-    ]);
-  };
-
-  const currentStudent = missingStudents[currentIndex];
+  if (loading) {
+      return (
+          <View style={styles.center}>
+              <ActivityIndicator size="large" color="#0d9488" />
+          </View>
+      );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <MarathiText bold size={24} color="#0f172a">
-          {t("manual.title")}
-        </MarathiText>
-        <MarathiText size={14} color="#475569" style={{ marginBottom: 20 }}>
-          {t("manual.instruction")}
-        </MarathiText>
-
-        {permission?.status === "granted" ? (
-          <View style={styles.cameraPlaceholder}>
-            <MarathiText size={14} color="#94a3b8">
-              {language === "mr" ? "कॅमेरा तयार आहे" : "Camera ready"}
-            </MarathiText>
+      <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#0d9488" />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <MarathiText bold size={20} color="#0f172a">मॅन्युअली हजेरी (Manual Override)</MarathiText>
+            <MarathiText size={14} color="#64748b">{className} • {timeSlot}</MarathiText>
           </View>
-        ) : (
-          <TouchableOpacity
-            style={styles.permissionButton}
-            onPress={onRequestPermission}
-          >
-            <MarathiText bold size={16} color="#fff">
-              {t("common.ok")}
-            </MarathiText>
-          </TouchableOpacity>
-        )}
+      </View>
 
-        <View style={styles.statusBox}>
-          <MarathiText size={16} color="#0f172a">
-            {currentStudent ? currentStudent.name : t("manual.allDone")}
-          </MarathiText>
-          <MarathiText size={12} color="#475569">
-            {currentStudent
-              ? `${t("common.back")} ${currentIndex + 1}/${missingStudents.length}`
-              : ""}
-          </MarathiText>
-        </View>
-
-        {currentStudent ? (
-          <TouchableOpacity style={styles.captureButton} onPress={markVerified}>
-            <MarathiText bold size={18} color="#fff">
-              {t("manual.capture")}
-            </MarathiText>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={styles.captureButton}
-            onPress={finishVerification}
-          >
-            <MarathiText bold size={18} color="#fff">
-              {t("common.ok")}
-            </MarathiText>
-          </TouchableOpacity>
-        )}
-
-        <MarathiText
-          bold
-          size={18}
-          color="#0f172a"
-          style={{ marginTop: 24, marginBottom: 12 }}
-        >
-          {t("scan.missing")}
-        </MarathiText>
-        {missingStudents.map((student) => (
-          <StudentCard
-            key={student.id}
-            name={student.name}
-            rollNumber={student.rollNumber}
-            status={captured.includes(student.id) ? "Verified" : "Pending"}
-            badgeColor={captured.includes(student.id) ? "#16a34a" : "#f59e0b"}
+      <View style={styles.searchContainer}>
+          <MaterialCommunityIcons name="magnify" size={20} color="#94a3b8" />
+          <TextInput
+            placeholder="विद्यार्थी शोधा (Search Student...)"
+            style={styles.searchInput}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
-        ))}
-      </ScrollView>
+      </View>
+
+      <FlatList
+        data={filteredStudents}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.list}
+        renderItem={({ item }) => {
+            const status = attendance[item.id];
+            let bgColor = "#f1f5f9";
+            let textColor = "#475569";
+            
+            if (status === "Present") { bgColor = "#ecfdf5"; textColor = "#059669"; }
+            if (status === "Absent") { bgColor = "#fef2f2"; textColor = "#dc2626"; }
+            if (status === "Leave") { bgColor = "#fff7ed"; textColor = "#d97706"; }
+
+            return (
+              <TouchableOpacity 
+                style={[styles.studentRow, { backgroundColor: bgColor }]}
+                onPress={() => toggleStatus(item.id)}
+              >
+                <View style={{ flex: 1 }}>
+                    <View style={styles.rowTop}>
+                        <MarathiText bold size={18} color="#1e293b">{item.name}</MarathiText>
+                        <View style={styles.rollBadge}>
+                            <MarathiText size={12} color="#64748b">Roll {item.rollNumber}</MarathiText>
+                        </View>
+                    </View>
+                </View>
+                <View style={styles.statusAction}>
+                    <MarathiText bold size={14} color={textColor}>{status}</MarathiText>
+                    <MaterialCommunityIcons 
+                        name={status === "Present" ? "check-circle" : status === "Absent" ? "close-circle" : "clock-alert"} 
+                        size={24} 
+                        color={textColor} 
+                        style={{ marginLeft: 8 }}
+                    />
+                </View>
+              </TouchableOpacity>
+            );
+        }}
+      />
+
+      <View style={styles.footer}>
+          <TouchableOpacity 
+            style={[styles.saveBtn, isSaving && { opacity: 0.7 }]} 
+            onPress={handleSaveAll}
+            disabled={isSaving}
+          >
+            {isSaving ? <ActivityIndicator color="#fff" /> : (
+                <>
+                    <MaterialCommunityIcons name="content-save-check" size={24} color="#fff" />
+                    <MarathiText bold size={18} color="#fff" style={{ marginLeft: 12 }}>
+                        हजेरी जतन करा (Save All)
+                    </MarathiText>
+                </>
+            )}
+          </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#eef2ff",
-  },
-  content: {
-    padding: 24,
-  },
-  cameraPlaceholder: {
-    height: 220,
-    borderRadius: 24,
-    backgroundColor: "#cbd5e1",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  permissionButton: {
-    backgroundColor: "#0d9488",
-    borderRadius: 20,
-    paddingVertical: 16,
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  statusBox: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    marginBottom: 20,
-  },
-  captureButton: {
-    backgroundColor: "#0d9488",
-    borderRadius: 20,
-    paddingVertical: 18,
-    alignItems: "center",
-  },
+  container: { flex: 1, backgroundColor: "#fff" },
+  header: { flexDirection: 'row', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  backBtn: { marginRight: 16, padding: 8 },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', margin: 16, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' },
+  searchInput: { flex: 1, padding: 12, fontSize: 16, color: '#1e293b' },
+  list: { padding: 16, paddingBottom: 100 },
+  studentRow: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)' },
+  rowTop: { flexDirection: 'row', alignItems: 'center' },
+  rollBadge: { backgroundColor: '#fff', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, marginLeft: 8 },
+  statusAction: { flexDirection: 'row', alignItems: 'center', minWidth: 100, justifyContent: 'flex-end' },
+  footer: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', padding: 20, borderTopWidth: 1, borderTopColor: '#f1f5f9' },
+  saveBtn: { backgroundColor: "#0d9488", height: 56, borderRadius: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', elevation: 4 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' }
 });

@@ -8,7 +8,7 @@ export type LeaveStatus =
   | "rejected";
 
 export const leaveRepo = {
-  async getPendingForClass(classId: string) {
+  async getPendingForClass(className: string) {
     const db = await dbPromise;
     return db.getAllAsync<{
       id: string;
@@ -23,9 +23,9 @@ export const leaveRepo = {
       `SELECT lr.id, lr.student_id, s.name as student_name, lr.reason_text, lr.from_date, lr.to_date, lr.status, lr.created_at
        FROM leave_requests lr
        JOIN students s ON s.id = lr.student_id
-       WHERE lr.class_id = ? AND lr.status IN ('pending', 'parent_approved')
+       WHERE lr.class_name = ? AND lr.status IN ('pending', 'parent_approved')
        ORDER BY lr.created_at DESC`,
-      [classId],
+      [className],
     );
   },
 
@@ -52,7 +52,7 @@ export const leaveRepo = {
 
   async submitRequest(
     studentId: string,
-    classId: string,
+    className: string,
     fromDate: string,
     toDate: string,
     reasonCode: string,
@@ -62,11 +62,11 @@ export const leaveRepo = {
     const id = Crypto.randomUUID();
 
     await db.runAsync(
-      "INSERT INTO leave_requests (id, student_id, class_id, from_date, to_date, reason_code, reason_text, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO leave_requests (id, student_id, class_name, from_date, to_date, reason_code, reason_text, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       [
         id,
         studentId,
-        classId,
+        className,
         fromDate,
         toDate,
         reasonCode,

@@ -64,8 +64,9 @@ export default function ScanResultScreen() {
         await bulkSaveAttendance(records);
         Alert.alert("Success", "Attendance saved to history successfully!");
         router.replace("/(app)/dashboard");
-    } catch (e) {
-        Alert.alert("Error", "Failed to save attendance");
+    } catch (e: any) {
+        console.error("Auto Save Error:", e);
+        Alert.alert("साठवण्यात चूक (Save Error)", `हजेरी साठवता आली नाही. \n\nतांत्रिक त्रुटी (Technical Error): ${e?.message || JSON.stringify(e)}`);
     } finally {
         setIsSaving(false);
     }

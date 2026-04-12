@@ -10,25 +10,32 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
+  Alert,
 } from "react-native";
 
 export default function BusScreen() {
   const router = useRouter();
-  const [buses, setBuses] = useState<
-    {
-      id: number;
-      route_name: string;
-      status: "on_time" | "delayed";
-      delay_minutes: number;
-      updated_at: string;
-    }[]
-  >([]);
+  const [buses, setBuses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const ruralRoutes = [
+    "गावची मुख्य शाळा बस (Main Village)",
+    "पाटील वस्ती मार्ग (vasti route)",
+    "हायवे चौक फाटा (Highway Phata)",
+    "मळगंगा मंदिर मार्ग (Temple Route)"
+  ];
 
   const load = async () => {
     try {
       const rows = await featureRepo.getBusStatus();
-      setBuses(rows);
+      // Ensure all rural routes exist in DB
+      for (const route of ruralRoutes) {
+          if (!rows.find(r => r.route_name === route)) {
+              await featureRepo.updateBusStatus(route, "on_time", 0);
+          }
+      }
+      const updated = await featureRepo.getBusStatus();
+      setBuses(updated);
     } finally {
       setLoading(false);
     }
@@ -38,13 +45,14 @@ export default function BusScreen() {
     load();
   }, []);
 
-  const updateBusStatus = async (
-    routeName: string,
-    status: "on_time" | "delayed",
-    delayMinutes: number,
-  ) => {
-    await featureRepo.updateBusStatus(routeName, status, delayMinutes);
-    await load();
+  const updateStatus = async (routeName: string, status: "on_time" | "delayed", delay: number) => {
+    try {
+        await featureRepo.updateBusStatus(routeName, status, delay);
+        Alert.alert("यशस्वी", "बसची स्थिती अपडेट केली.");
+        load();
+    } catch (e) {
+        Alert.alert("त्रुटी", "अपडेट करताना अडचण आली.");
+    }
   };
 
   return (
@@ -53,64 +61,62 @@ export default function BusScreen() {
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
           <MaterialCommunityIcons name="arrow-left" size={24} color="#374151" />
         </TouchableOpacity>
-        <MarathiText bold size={20} color="#1f2937">
-          Bus Management
+        <MarathiText bold size={22} color="#1f2937">
+          बस सेवा व्यवस्थापन (Bus)
         </MarathiText>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
         {loading ? (
-          <ActivityIndicator size="large" color="#0d9488" />
+          <ActivityIndicator size="large" color="#eab308" />
         ) : (
-          <>
-            <View style={styles.inputCard}>
-              <MarathiText bold size={16} color="#374151" style={{ marginBottom: 12 }}>
-                Update Route 1
-              </MarathiText>
-              <View style={styles.actionRow}>
-                <TouchableOpacity
-                  style={styles.updateBtn}
-                  onPress={() => updateBusStatus("Route 1", "delayed", 15)}
-                >
-                  <MaterialCommunityIcons name="clock-alert-outline" size={20} color="#fff" />
-                  <MarathiText size={14} color="#fff" style={{ marginLeft: 8 }}>
-                    Mark Delayed
-                  </MarathiText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.updateBtn, { backgroundColor: "#059669" }]}
-                  onPress={() => updateBusStatus("Route 1", "on_time", 0)}
-                >
-                  <MaterialCommunityIcons name="check-circle-outline" size={20} color="#fff" />
-                  <MarathiText size={14} color="#fff" style={{ marginLeft: 8 }}>
-                    Mark On Time
-                  </MarathiText>
-                </TouchableOpacity>
+          buses.map((bus) => (
+            <View key={bus.id} style={styles.busCard}>
+              <View style={styles.cardHeader}>
+                  <MaterialCommunityIcons name="bus" size={32} color="#eab308" />
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <MarathiText bold size={18} color="#1e293b">{bus.route_name}</MarathiText>
+                    <View style={styles.statusRow}>
+                        <View style={[styles.dot, { backgroundColor: bus.status === 'on_time' ? '#22c55e' : '#ef4444' }]} />
+                        <MarathiText size={14} color={bus.status === 'on_time' ? '#16a34a' : '#dc2626'}>
+                            {bus.status === 'on_time' ? "वेळेवर (On Time)" : `${bus.delay_minutes} मि. उशीर (Delayed)`}
+                        </MarathiText>
+                    </View>
+                  </View>
+              </View>
+
+              <View style={styles.actionGrid}>
+                  <TouchableOpacity 
+                    style={[styles.actionBtn, { borderColor: '#22c55e' }]} 
+                    onPress={() => updateStatus(bus.route_name, "on_time", 0)}
+                  >
+                    <MaterialCommunityIcons name="bus-side" size={20} color="#16a34a" />
+                    <MarathiText bold size={12} color="#16a34a" style={{ marginTop: 4 }}>निघाली / वेळेवर</MarathiText>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={[styles.actionBtn, { borderColor: '#3b82f6' }]} 
+                    onPress={() => {
+                        Alert.alert("Reached", "Confirm status: Reached School?", [
+                            { text: "Cancel" },
+                            { text: "Confirm", onPress: () => updateStatus(bus.route_name, "on_time", 0) }
+                        ]);
+                    }}
+                  >
+                    <MaterialCommunityIcons name="map-marker-check" size={20} color="#2563eb" />
+                    <MarathiText bold size={12} color="#2563eb" style={{ marginTop: 4 }}>पोहोचली</MarathiText>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={[styles.actionBtn, { borderColor: '#ef4444' }]} 
+                    onPress={() => updateStatus(bus.route_name, "delayed", 15)}
+                  >
+                    <MaterialCommunityIcons name="clock-alert-outline" size={20} color="#dc2626" />
+                    <MarathiText bold size={12} color="#dc2626" style={{ marginTop: 4 }}>उशीर (Delayed)</MarathiText>
+                  </TouchableOpacity>
               </View>
             </View>
-
-            <MarathiText bold size={18} color="#1f2937" style={{ marginBottom: 12 }}>
-              Current Status
-            </MarathiText>
-            {buses.map((bus) => (
-              <View key={bus.id} style={styles.busCard}>
-                <MaterialCommunityIcons name="bus" size={32} color="#7c3aed" />
-                <View style={{ flex: 1, marginLeft: 16 }}>
-                  <MarathiText bold size={18} color="#1f2937">
-                    {bus.route_name}
-                  </MarathiText>
-                  <MarathiText
-                    size={14}
-                    color={bus.status === "delayed" ? "#dc2626" : "#059669"}
-                  >
-                    {bus.status === "delayed"
-                      ? `${bus.delay_minutes} mins delayed`
-                      : "On time"}
-                  </MarathiText>
-                </View>
-              </View>
-            ))}
-          </>
+          ))
         )}
       </ScrollView>
     </SafeAreaView>
@@ -118,43 +124,33 @@ export default function BusScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f9fafb" },
+  container: { flex: 1, backgroundColor: "#fffbeb" },
   header: {
     flexDirection: "row",
     alignItems: "center",
     padding: 20,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: "#e5e7eb",
+    borderBottomColor: "#fde68a",
   },
-  backBtn: { padding: 8, marginRight: 12, backgroundColor: "#f3f4f6", borderRadius: 12 },
-  content: { padding: 20 },
-  inputCard: {
-    backgroundColor: "#fff",
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-  },
-  actionRow: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
-  updateBtn: {
-    flex: 1,
-    backgroundColor: "#dc2626",
-    padding: 12,
-    borderRadius: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  backBtn: { padding: 8, marginRight: 12, backgroundColor: "#fef3c7", borderRadius: 12 },
+  content: { padding: 16 },
   busCard: {
-    flexDirection: "row",
-    alignItems: "center",
     backgroundColor: "#fff",
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 12,
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 20,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
+    borderColor: '#fef3c7'
   },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  statusRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  dot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
+  actionGrid: { flexDirection: 'row', gap: 10 },
+  actionBtn: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 16, borderWidth: 1, backgroundColor: '#fafafa' },
 });

@@ -92,18 +92,25 @@ export default function StudentRegistrationScreen() {
         rollNumber: Number(rollNumber),
         parentPhone: parentPhone.trim(),
         faceData: faceDataToSave,
+        schoolId: 'S001',
       };
 
-      // 1. Send data to Local DB
+      // 1. Send data to Local DB (First!)
       if (isEditing) {
         await updateStudent(student);
       } else {
         await addStudent(student);
       }
+      
+      console.log("[StudentRegistration] Local save successful for ID:", newStudentId);
 
-      // 2. Transmit to Backend for ML extraction
+      // 2. Transmit to Backend for ML extraction - Only if local save worked
       if (faceBase64) {
-        await enrollFaceViaAPI(newStudentId, faceBase64, student.name, student.rollNumber, student.parentPhone, student.className);
+        try {
+            await enrollFaceViaAPI(newStudentId, faceBase64, student.name, student.rollNumber, student.parentPhone, student.className);
+        } catch (apiErr) {
+            console.error("ML Enrollment failed, but local record saved:", apiErr);
+        }
       }
 
       Alert.alert("Saved", isEditing ? "Student details updated successfully!" : "Student registered dynamically with facial embeddings!");

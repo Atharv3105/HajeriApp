@@ -15,37 +15,42 @@ router.post('/enroll', async (req, res) => {
     const descriptor = await getEmbeddingFromBase64(imageBase64);
     
     if (role === 'teacher') {
-        let teacher = await Teacher.findByPk(studentId);
-        if (!teacher) {
-            teacher = await Teacher.create({
-                id: studentId,
-                name: name || 'Unknown Teacher',
-                phone: parentPhone || '', // Reuse parentPhone field for teacher phone in req
+        const phoneKey = parentPhone || phone || ''; // Server might receive either
+        // Use upsert-like logic
+        const [teacher, created] = await Teacher.findOrCreate({
+            where: { id: studentId },
+            defaults: {
+                name: name || 'Teacher',
+                phone: phoneKey,
                 face_embedding: JSON.stringify(descriptor)
-            });
-        } else {
+            }
+        });
+
+        if (!created) {
             teacher.name = name || teacher.name;
+            if (phoneKey) teacher.phone = phoneKey;
             teacher.face_embedding = JSON.stringify(descriptor);
             await teacher.save();
         }
     } else {
-        let student = await Student.findByPk(studentId);
-        if (!student) {
-          student = await Student.create({
-            id: studentId,
-            name: name || 'Unknown Student',
-            roll_number: rollNumber || 0,
-            class_name: className || '',
-            parent_phone: parentPhone || '',
-            face_embedding: JSON.stringify(descriptor)
-          });
-        } else {
-          if (name) student.name = name;
-          if (rollNumber) student.roll_number = rollNumber;
-          if (className) student.class_name = className;
-          if (parentPhone) student.parent_phone = parentPhone;
-          student.face_embedding = JSON.stringify(descriptor);
-          await student.save();
+        const [student, created] = await Student.findOrCreate({
+            where: { id: studentId },
+            defaults: {
+                name: name || 'Student',
+                roll_number: rollNumber || 0,
+                class_name: className || '',
+                parent_phone: parentPhone || '',
+                face_embedding: JSON.stringify(descriptor)
+            }
+        });
+
+        if (!created) {
+            if (name) student.name = name;
+            if (rollNumber) student.roll_number = rollNumber;
+            if (className) student.class_name = className;
+            if (parentPhone) student.parent_phone = parentPhone;
+            student.face_embedding = JSON.stringify(descriptor);
+            await student.save();
         }
     }
     
@@ -57,42 +62,55 @@ router.post('/enroll', async (req, res) => {
   }
 });
 
-// Single person verification (existing)
+// Single person verification - Optimized for Global Best Match
 router.post('/verify', async (req, res) => {
   try {
-    const { imageBase64, threshold = 0.82, className } = req.body;
+    const { imageBase64, threshold = 0.88, className } = req.body;
     if (!imageBase64) return res.status(400).json({ error: 'Missing imageBase64' });
 
     const capturedEmbedding = await getEmbeddingFromBase64(imageBase64);
     
-    // Check Teachers first if no className
-    if (!className) {
-        const teachers = await Teacher.findAll();
-        for (const t of teachers) {
-            if (t.face_embedding) {
-                const score = calculateSimilarity(capturedEmbedding, JSON.parse(t.face_embedding));
-                if (score >= threshold) return res.json({ success: true, match: true, studentId: t.id, role: 'teacher' });
+    let bestMatch = { id: null, score: 0, role: null };
+
+    // 1. Scan Teachers
+    const teachers = await Teacher.findAll();
+    for (const t of teachers) {
+        if (t.face_embedding) {
+            const score = calculateSimilarity(capturedEmbedding, JSON.parse(t.face_embedding));
+            if (score > bestMatch.score) {
+                bestMatch = { id: t.id, score, role: 'teacher' };
             }
         }
     }
 
+    // 2. Scan Students (Filtering by className if provided for efficiency)
     const queryOptions = className ? { where: { class_name: className } } : {};
     const students = await Student.findAll(queryOptions);
-    
-    let bestMatch = { id: null, score: 0 };
-    for (const student of students) {
-      if (student.face_embedding) {
-        const score = calculateSimilarity(capturedEmbedding, JSON.parse(student.face_embedding));
-        if (score > bestMatch.score) bestMatch = { id: student.id, score };
-      }
+    for (const s of students) {
+        if (s.face_embedding) {
+            const score = calculateSimilarity(capturedEmbedding, JSON.parse(s.face_embedding));
+            if (score > bestMatch.score) {
+                bestMatch = { id: s.id, score, role: 'student' };
+            }
+        }
     }
 
+    // 3. Return the absolute best match found above threshold
     if (bestMatch.score >= threshold) {
-      return res.json({ success: true, match: true, studentId: bestMatch.id, score: bestMatch.score });
+      console.log(`[FaceAPI] GLOBAL MATCH: ID=${bestMatch.id} Role=${bestMatch.role} Score=${bestMatch.score.toFixed(3)}`);
+      return res.json({ 
+          success: true, 
+          match: true, 
+          studentId: bestMatch.id, 
+          role: bestMatch.role, // Explicitly tell the mobile app which role matched
+          score: bestMatch.score 
+      });
     }
+
     return res.json({ success: true, match: false });
   } catch (error) {
     if (error.message.includes('No face detected')) return res.json({ success: true, match: false, error: 'No face detected' });
+    console.error('Verify Error:', error);
     return res.status(500).json({ error: error.message });
   }
 });

@@ -4,31 +4,21 @@ import { Student } from "./databaseService";
 
 // Improved IP Detection for Expo Go and Physical Devices
 const getAPIUrl = () => {
-    let hostname = "localhost";
+    // USER PROVIDED IP (Primary Fallback for reliability)
+    const USER_IP = "192.168.1.3";
+    let hostname = USER_IP;
     
-    // 1. Try Expo Constants (Reliable for Expo Go)
+    // 1. Try Expo Constants (Useful if running via Expo Go)
     const hostUri = Constants.expoConfig?.hostUri;
     if (hostUri) {
         // e.g., 192.168.1.3:8081
-        hostname = hostUri.split(':')[0];
-    } else {
-        // 2. Fallback to scriptURL splitting
-        try {
-            const scriptURL = NativeModules.SourceCode?.scriptURL;
-            if (scriptURL) {
-                const match = scriptURL.match(/:\/\/([^:/]+)/);
-                if (match && match[1]) {
-                    hostname = match[1];
-                }
-            }
-        } catch (e) {}
+        const detected = hostUri.split(':')[0];
+        if (detected && detected !== 'localhost' && detected !== '127.0.0.1') {
+            hostname = detected;
+        }
     }
 
-    // FINAL FALLBACK: If you are seeing 'localhost' in logs but using a real phone,
-    // please change 'localhost' below to your laptop's Wi-Fi IP (e.g., '192.168.x.x')
-    const FINAL_HOSTNAME = hostname === "localhost" || hostname === "127.0.0.1" ? "localhost" : hostname;
-
-    return `http://${FINAL_HOSTNAME}:5000/api/faces`;
+    return `http://${hostname}:5000/api/faces`;
 };
 
 const API_URL = getAPIUrl();
@@ -66,19 +56,19 @@ export const enrollFaceViaAPI = async (
   return response.json();
 };
 
-/**
- * Single person verification
+/** 
+ * Single person verification - Returns ID and detected Role
  */
-export const verifyFaceViaAPI = async (imageBase64: string, className?: string): Promise<string | null> => {
+export const verifyFaceViaAPI = async (imageBase64: string, className?: string): Promise<{ studentId: string; role: string; } | null> => {
   try {
     const response = await fetch(`${API_URL}/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imageBase64, threshold: 0.82, className })
+      body: JSON.stringify({ imageBase64, threshold: 0.90, className })
     });
     const result = await response.json();
     if (result.success && result.match) {
-      return result.studentId;
+      return { studentId: result.studentId, role: result.role };
     }
     return null;
   } catch (error) {

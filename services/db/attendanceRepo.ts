@@ -8,14 +8,14 @@ export interface AttendanceRecord {
 }
 
 export const attendanceRepo = {
-  async startSession(classId: string, teacherId: string) {
+  async startSession(className: string, teacherId: string) {
     const db = await dbPromise;
     const id = Crypto.randomUUID();
     const date = new Date().toISOString().split("T")[0];
 
     await db.runAsync(
-      "INSERT INTO attendance_sessions (id, class_id, teacher_id, date) VALUES (?, ?, ?, ?)",
-      [id, classId, teacherId, date],
+      "INSERT INTO attendance_sessions (id, class_name, teacher_id, date) VALUES (?, ?, ?, ?)",
+      [id, className, teacherId, date],
     );
 
     return id;
@@ -23,29 +23,22 @@ export const attendanceRepo = {
 
   async getClassesForTeacher(teacherId: string) {
     const db = await dbPromise;
-    return db.getAllAsync<{
-      id: string;
-      grade: string;
-      section: string;
-      class_name: string;
-    }>(
-      `SELECT id, grade, section, grade || ' ' || section AS class_name
-       FROM classes
-       WHERE teacher_id = ?
-       ORDER BY grade, section;`,
-      [teacherId],
+    // For rural context, we'll get distinct class names from the students table
+    const rows = await db.getAllAsync<{ class_name: string }>(
+      "SELECT DISTINCT class_name FROM students WHERE school_id IS NOT NULL OR 1=1 ORDER BY class_name ASC;"
     );
+    return rows.map(r => ({ id: r.class_name, class_name: r.class_name }));
   },
 
-  async getStudentsForClass(classId: string) {
+  async getStudentsForClass(className: string) {
     const db = await dbPromise;
     const students = await db.getAllAsync<{
       id: string;
       name: string;
       roll_number: number;
     }>(
-      "SELECT id, name, roll_number FROM students WHERE class_id = ? ORDER BY roll_number ASC",
-      [classId],
+      "SELECT id, name, roll_number FROM students WHERE class_name = ? ORDER BY roll_number ASC",
+      [className],
     );
     return students;
   },
@@ -98,13 +91,13 @@ export const attendanceRepo = {
       `SELECT
          s.id as session_id,
          s.date,
-         c.grade || ' ' || c.section as class_name,
-         SUM(CASE WHEN ar.status = 'present' THEN 1 ELSE 0 END) as present,
-         SUM(CASE WHEN ar.status = 'absent' THEN 1 ELSE 0 END) as absent,
+         s.class_name,
+         SUM(CASE WHEN ar.status IN ('present', 'Present', 'Verified') THEN 1 ELSE 0 END) as present,
+         SUM(CASE WHEN ar.status IN ('absent', 'Absent') THEN 1 ELSE 0 END) as absent,
          COUNT(ar.id) as total
        FROM attendance_sessions s
        JOIN attendance_records ar ON ar.session_id = s.id
-       JOIN classes c ON c.id = s.class_id
+       INNER JOIN students st ON st.id = ar.student_id
        GROUP BY s.id
        ORDER BY s.date DESC;`,
       [],
@@ -122,20 +115,19 @@ export const attendanceRepo = {
     }>(
       `SELECT
          s.date,
-         c.grade || ' ' || c.section as class_name,
+         s.class_name,
          ar.status,
          ar.method,
          ar.marked_at
        FROM attendance_records ar
        JOIN attendance_sessions s ON ar.session_id = s.id
-       JOIN classes c ON c.id = s.class_id
        WHERE ar.student_id = ?
        ORDER BY s.date DESC, ar.marked_at DESC;`,
       [studentId],
     );
   },
 
-  async getClassAttendanceHistory(classId: string) {
+  async getClassAttendanceHistory(className: string) {
     const db = await dbPromise;
     return db.getAllAsync<{
       session_id: string;
@@ -148,21 +140,20 @@ export const attendanceRepo = {
       `SELECT
          s.id as session_id,
          s.date,
-         c.grade || ' ' || c.section as class_name,
-         SUM(CASE WHEN ar.status = 'present' THEN 1 ELSE 0 END) as present,
-         SUM(CASE WHEN ar.status = 'absent' THEN 1 ELSE 0 END) as absent,
+         s.class_name,
+         SUM(CASE WHEN ar.status IN ('present', 'Present', 'Verified') THEN 1 ELSE 0 END) as present,
+         SUM(CASE WHEN ar.status IN ('absent', 'Absent') THEN 1 ELSE 0 END) as absent,
          COUNT(ar.id) as total
        FROM attendance_sessions s
        JOIN attendance_records ar ON ar.session_id = s.id
-       JOIN classes c ON c.id = s.class_id
-       WHERE s.class_id = ?
+       WHERE s.class_name = ?
        GROUP BY s.id
        ORDER BY s.date DESC;`,
-      [classId],
+      [className],
     );
   },
 
-  async getClassAttendanceReport(classId: string) {
+  async getClassAttendanceReport(className: string) {
     const db = await dbPromise;
     return db.getAllAsync<{
       id: string;
@@ -179,17 +170,17 @@ export const attendanceRepo = {
          ROUND(
            CASE
              WHEN COUNT(ar.id) = 0 THEN 0
-             ELSE 100.0 * SUM(CASE WHEN ar.status IN ('present','leave') THEN 1 ELSE 0 END) / COUNT(ar.id)
+             ELSE 100.0 * SUM(CASE WHEN ar.status IN ('present','Present','Verified','leave','Leave') THEN 1 ELSE 0 END) / COUNT(ar.id)
            END, 0
          ) AS attendance_percent,
-         SUM(CASE WHEN ar.status IN ('present','leave') THEN 1 ELSE 0 END) AS present_count,
+         SUM(CASE WHEN ar.status IN ('present','Present','Verified','leave','Leave') THEN 1 ELSE 0 END) AS present_count,
          COUNT(ar.id) AS total_count
        FROM students s
        LEFT JOIN attendance_records ar ON ar.student_id = s.id
-       WHERE s.class_id = ?
+       WHERE s.class_name = ?
        GROUP BY s.id, s.name, s.roll_number
        ORDER BY s.roll_number ASC;`,
-      [classId],
+      [className],
     );
   },
 
