@@ -1,0 +1,83 @@
+{
+  "auth": {
+    "face_scan_prompt": "Scan face to login",
+    "pin_prompt": "Enter your 4-digit PIN",
+    "otp_prompt": "Enter OTP from your mobile",
+    "login_btn": "Login",
+    "fallback_pin": "Use PIN",
+    "role_select": "Select your role",
+    "teacher": "Teacher",
+    "student": "Student",
+    "parent": "Parent"
+  },
+  "teacher": {
+    "start_session": "Start Attendance",
+    "scan_classroom": "Scan Classroom",
+    "voice_callout": "Voice Attendance",
+    "manual_override": "Manual Attendance",
+    "confirm_session": "Save Attendance",
+    "session_summary": "Today's Attendance Summary",
+    "total_present": "Present",
+    "total_absent": "Absent",
+    "save_attendance": "Save",
+    "sync_pending": "Syncing records...",
+    "sync_done": "Sync complete",
+    "bus_late": "Bus Late",
+    "pending_leaves": "Leave Requests"
+  },
+  "dashboard": {
+    "attendanceHistory": "Attendance History",
+    "exportCsv": "Export CSV",
+    "demoMode": "Demo Mode"
+  },
+  "history": {
+    "title": "Attendance History",
+    "present": "Present",
+    "absent": "Absent"
+  },
+  "student": {
+    "my_attendance": "My Attendance",
+    "this_month": "This Month",
+    "scholarship_status": "Scholarship Status",
+    "leave_request": "Leave Request",
+    "new_leave": "New Leave Request",
+    "leave_reason_illness": "Illness",
+    "leave_reason_family": "Family",
+    "leave_reason_festival": "Festival",
+    "leave_reason_farm": "Farm Work",
+    "leave_reason_other": "Other",
+    "dispute_marking": "Raise Dispute",
+    "scholarship_warning": "Attendance below 75%!"
+  },
+  "parent": {
+    "child_status": "Child Status",
+    "arrived_at": "Arrived at School",
+    "absent_today": "Absent Today",
+    "on_leave": "On Leave",
+    "pending_leave_requests": "Leave Approval",
+    "approve_leave": "Approve Leave",
+    "reject_leave": "Reject Leave",
+    "confirm_approve_modal": "Are you sure you want to approve?",
+    "waiting_teacher": "Waiting for Teacher Approval",
+    "leave_approved_final": "Leave Approved",
+    "monthly_report": "Monthly Report",
+    "alert_settings": "Alert Settings"
+  },
+  "leave_status": {
+    "pending": "Pending",
+    "parent_approved": "Parent Approved",
+    "teacher_approved": "Teacher Approved",
+    "rejected": "Rejected"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "loading": "Loading...",
+    "offline_mode": "Offline Mode",
+    "sync_status": "Sync Status",
+    "error_generic": "Something went wrong",
+    "noStudents": "No attendance records available",
+    "back": "Back"
+  }
+}

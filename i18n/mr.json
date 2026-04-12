@@ -1,0 +1,86 @@
+{
+  "auth": {
+    "face_scan_prompt": "लॉगिन करण्यासाठी चेहरा स्कॅन करा",
+    "pin_prompt": "तुमचा ४-अंकी पिन प्रविष्ट करा",
+    "otp_prompt": "तुमच्या मोबाइलवर आलेला ओटीपी प्रविष्ट करा",
+    "login_btn": "लॉगिन करा",
+    "fallback_pin": "पिन वापरा",
+    "role_select": "तुमची भूमिका निवडा",
+    "teacher": "शिक्षक",
+    "student": "विद्यार्थी",
+    "parent": "पालक"
+  },
+  "teacher": {
+    "start_session": "हजेरी सुरू करा",
+    "scan_classroom": "वर्ग स्कॅन करा",
+    "voice_callout": "आवाज हजेरी",
+    "manual_override": "मॅन्युअल हजेरी",
+    "confirm_session": "हजेरी जतन करा",
+    "session_summary": "आजची हजेरी सारांश",
+    "total_present": "उपस्थित",
+    "total_absent": "अनुपस्थित",
+    "save_attendance": "जतन करा",
+    "sync_pending": "नोंदी सिंक्रोनाइझ होत आहेत",
+    "sync_done": "सर्व नोंदी जतन झाल्या",
+    "bus_late": "बस उशीर",
+    "pending_leaves": "रजा विनंत्या"
+  },
+  "dashboard": {
+    "attendanceHistory": "हजेरी अहवाल",
+    "exportCsv": "CSV निर्यात करा",
+    "demoMode": "डेमो मोड"
+  },
+  "history": {
+    "title": "हजेरी इतिहास",
+    "present": "उपस्थित",
+    "absent": "अनुपस्थित"
+  },
+  "student": {
+    "my_attendance": "माझी हजेरी",
+    "this_month": "या महिन्याची हजेरी",
+    "scholarship_status": "शिष्यवृत्ती स्थिती",
+    "leave_request": "रजा मागणी",
+    "new_leave": "नवीन रजा मागणी",
+    "leave_reason_illness": "आजार",
+    "leave_reason_family": "कौटुंबिक",
+    "leave_reason_festival": "सण",
+    "leave_reason_farm": "शेतकाम",
+    "leave_reason_other": "इतर",
+    "dispute_marking": "तक्रार नोंदवा",
+    "scholarship_warning": "तुमची हजेरी ७५% पेक्षा कमी आहे!"
+  },
+  "parent": {
+    "child_status": "मुलाची स्थिती",
+    "arrived_at": "शाळेत पोहोचले",
+    "absent_today": "आज अनुपस्थित",
+    "on_leave": "रजेवर आहे",
+    "pending_leave_requests": "रजा मंजुरी",
+    "approve_leave": "रजा मंजूर करा",
+    "reject_leave": "नाकारतो / नाकारते",
+    "confirm_approve_modal": "तुम्ही रजा मंजूर करत आहात. खात्री आहे का?",
+    "waiting_teacher": "शिक्षकांच्या मंजुरीची प्रतीक्षा",
+    "leave_approved_final": "रजा मंजूर झाली",
+    "monthly_report": "मासिक अहवाल",
+    "alert_settings": "अॅलर्ट सेटिंग्ज"
+  },
+  "leave_status": {
+    "pending": "प्रतीक्षा",
+    "parent_approved": "पालक मंजूर",
+    "teacher_approved": "शिक्षक मंजूर",
+    "rejected": "नाकारले"
+  },
+  "common": {
+    "save": "जतन करा",
+    "cancel": "रद्द करा",
+    "confirm": "हो, खात्री आहे",
+    "loading": "लोड होत आहे...",
+    "offline_mode": "ऑफलाइन मोड",
+    "sync_status": "सिंक स्थिती",
+    "error_generic": "काहीतरी चूक झाली",
+    "noStudents": "कोणतीही हजेरी नोंदी उपलब्ध नाहीत",
+    "back": "मागे",
+    "success_all": "सर्व उपस्थित! छान!",
+    "syncing": "माहिती जतन होत आहे...",
+    "synced_celebration": "शाबास! सर्व माहिती सुरक्षितपणे जतन झाली."
+  }
+}

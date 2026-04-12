@@ -1,0 +1,56 @@
+{
+  "splash": {
+    "title": "स्मार्ट हजेरी प्रणाली",
+    "subtitle": "ग्रामीण भारतासाठी ऑफलाइन शालेय हजेरी"
+  },
+  "language": {
+    "title": "भाषा निवडा",
+    "english": "English",
+    "marathi": "मराठी"
+  },
+  "dashboard": {
+    "startScanning": "हजेरी सुरू करा",
+    "registerStudent": "विद्यार्थी नोंदणी",
+    "attendanceHistory": "हजेरी इतिहास",
+    "exportCsv": "CSV निर्यात करा",
+    "demoMode": "डेमो मोड"
+  },
+  "scan": {
+    "instruction": "कृपया कॅमेरा हळू हलवा",
+    "stop": "थांबवा",
+    "scanning": "स्कॅन करत आहे...",
+    "detected": "ओळखले",
+    "missing": "अनपेक्षित",
+    "verifyMissing": "अनपेक्षित विद्यार्थ्यांची तपासणी"
+  },
+  "manual": {
+    "title": "मॅन्युअल सत्यापन",
+    "instruction": "अनपेक्षित विद्यार्थी कॅमेराआड उभा राहो.",
+    "capture": "विद्यार्थी मिळवा",
+    "allDone": "सर्व विद्यार्थ्यांची तपासणी पूर्ण"
+  },
+  "registration": {
+    "title": "विद्यार्थी नोंदणी",
+    "name": "नाव",
+    "class": "इयत्ता",
+    "rollNumber": "रोल नंबर",
+    "captureFace": "चेहरा जतन करा",
+    "save": "विद्यार्थी जतन करा"
+  },
+  "history": {
+    "title": "हजेरी इतिहास",
+    "present": "उपस्थित",
+    "absent": "अनुपस्थित",
+    "date": "दिनांक"
+  },
+  "common": {
+    "next": "पुढे",
+    "back": "मागे",
+    "cancel": "रद्द करा",
+    "save": "जतन करा",
+    "yes": "होय",
+    "no": "नाही",
+    "ok": "ठीक आहे",
+    "noStudents": "अजून कोणी विद्यार्थी नाही"
+  }
+}

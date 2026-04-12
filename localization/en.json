@@ -1,0 +1,56 @@
+{
+  "splash": {
+    "title": "Smart Attendance",
+    "subtitle": "Offline school attendance for rural India"
+  },
+  "language": {
+    "title": "Choose your language",
+    "english": "English",
+    "marathi": "मराठी"
+  },
+  "dashboard": {
+    "startScanning": "Start Attendance",
+    "registerStudent": "Register Student",
+    "attendanceHistory": "Attendance History",
+    "exportCsv": "Export CSV",
+    "demoMode": "Demo Mode"
+  },
+  "scan": {
+    "instruction": "Scan the classroom slowly",
+    "stop": "Stop Scan",
+    "scanning": "Scanning...",
+    "detected": "Detected",
+    "missing": "Missing",
+    "verifyMissing": "Verify Missing Students"
+  },
+  "manual": {
+    "title": "Manual Verification",
+    "instruction": "Ask the missing student to stand in front of the camera.",
+    "capture": "Capture Student",
+    "allDone": "All students verified"
+  },
+  "registration": {
+    "title": "Register Student",
+    "name": "Name",
+    "class": "Class",
+    "rollNumber": "Roll Number",
+    "captureFace": "Capture Face",
+    "save": "Save Student"
+  },
+  "history": {
+    "title": "Attendance History",
+    "present": "Present",
+    "absent": "Absent",
+    "date": "Date"
+  },
+  "common": {
+    "next": "Next",
+    "back": "Back",
+    "cancel": "Cancel",
+    "save": "Save",
+    "yes": "Yes",
+    "no": "No",
+    "ok": "OK",
+    "noStudents": "No students available yet"
+  }
+}
