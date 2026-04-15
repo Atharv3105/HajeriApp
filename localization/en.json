@@ -41,6 +41,7 @@
     "title": "Attendance History",
     "present": "Present",
     "absent": "Absent",
+    "leave": "On Leave",
     "date": "Date"
   },
   "common": {
@@ -51,6 +52,7 @@
     "yes": "Yes",
     "no": "No",
     "ok": "OK",
+    "leave": "On Leave",
     "noStudents": "No students available yet"
   }
 }

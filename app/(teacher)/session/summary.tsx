@@ -85,7 +85,7 @@ export default function SessionSummaryScreen() {
     const finalRecords: AttendanceRecord[] = students.map((student) => {
       const record = records.get(student.id);
       return (
-        record || { student_id: student.id, status: "absent", method: "manual" }
+        record || { studentId: student.id, status: "absent", method: "manual" }
       );
     });
 
@@ -98,7 +98,7 @@ export default function SessionSummaryScreen() {
       );
       if (absentRecords.length > 0) {
         const contacts = await attendanceRepo.getParentContactsForStudentIds(
-          absentRecords.map((record) => record.student_id),
+          absentRecords.map((record) => record.studentId),
         );
 
         const successfulSmsIds: string[] = [];
@@ -131,7 +131,7 @@ export default function SessionSummaryScreen() {
             text: "ठीक आहे",
             onPress: () => {
               clearSession();
-              router.replace("/(teacher)/home");
+              router.replace("/(app)/dashboard" as any);
             },
           },
         ]);

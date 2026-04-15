@@ -24,7 +24,7 @@ export default function StudentLayout() {
       }}
     >
       <Tabs.Screen
-        name="home"
+        name="attendance"
         options={{
           title: 'माझी हजेरी',
           tabBarIcon: ({ color, size }) => (
@@ -59,7 +59,15 @@ export default function StudentLayout() {
           ),
         }}
       />
-      <Tabs.Screen name="attendance" options={{ href: null }} />
+      <Tabs.Screen
+        name="timetable"
+        options={{
+          title: 'वेळापत्रक',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="calendar-clock" size={32} color={color} />
+          ),
+        }}
+      />
       <Tabs.Screen name="results" options={{ href: null }} />
     </Tabs>
   );

@@ -25,6 +25,7 @@ export default function FaceScanScreen() {
   const params = useLocalSearchParams();
   const className = params.className as string;
   const timeSlot = params.timeSlot as string;
+  const subject = params.subject as string;
   const language = useSettingsStore((state) => state.language) || "en";
   
   const [students, setStudents] = useState<Student[]>([]);
@@ -68,7 +69,8 @@ export default function FaceScanScreen() {
           params: { 
               detected: JSON.stringify(detectedIds), 
               className: className, 
-              timeSlot: timeSlot 
+              timeSlot: timeSlot,
+              subject: subject
           },
         } as any);
       }
@@ -113,7 +115,7 @@ export default function FaceScanScreen() {
               Classroom Snapshot
             </MarathiText>
             <MarathiText size={14} color="#34d399">
-              {className} • {timeSlot}
+              {className} • {subject} • {timeSlot}
             </MarathiText>
         </View>
       </View>

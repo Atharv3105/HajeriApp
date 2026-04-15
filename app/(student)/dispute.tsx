@@ -26,14 +26,14 @@ export default function DisputeScreen() {
     setTimeout(() => {
       setLoading(false);
       Alert.alert("सबमिट", "तुमची तक्रार शाळेकडे पाठवण्यात आली आहे.");
-      router.back();
+      router.replace("/(student)/attendance");
     }, 900);
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.replace("/(student)/attendance")} style={styles.backBtn}>
           <MaterialCommunityIcons name="arrow-left" size={24} color="#374151" />
         </TouchableOpacity>
         <MarathiText bold size={22} color="#374151">

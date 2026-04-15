@@ -107,7 +107,7 @@ export default function StudentRegistrationScreen() {
       // 2. Transmit to Backend for ML extraction - Only if local save worked
       if (faceBase64) {
         try {
-            await enrollFaceViaAPI(newStudentId, faceBase64, student.name, student.rollNumber, student.parentPhone, student.className);
+            await enrollFaceViaAPI(newStudentId, faceBase64, student.name, student.rollNumber, student.parentPhone || "", student.className);
         } catch (apiErr) {
             console.error("ML Enrollment failed, but local record saved:", apiErr);
         }

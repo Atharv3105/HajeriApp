@@ -107,7 +107,7 @@ const DASHBOARD_CARDS: DashboardCard[] = [
     icon: "food-apple-outline",
     color: "#f43f5e", 
     route: "/(teacher)/meal",
-    roles: ["teacher", "parent"],
+    roles: [],
   },
   {
     id: "bus",
@@ -116,7 +116,7 @@ const DASHBOARD_CARDS: DashboardCard[] = [
     icon: "bus",
     color: "#eab308", 
     route: "/(teacher)/bus",
-    roles: ["teacher", "parent"],
+    roles: [],
   },
   {
     id: "apply_leave",
@@ -152,7 +152,7 @@ const DASHBOARD_CARDS: DashboardCard[] = [
     icon: "cog-outline",
     color: "#64748b",
     route: "/(teacher)/settings",
-    roles: ["teacher", "student", "parent"],
+    roles: ["student", "parent"],
   },
 ];
 
@@ -167,6 +167,18 @@ export default function DashboardScreen() {
     // For parents, we point the 'Leaves' card to the parent-specific approval screen
     if (card.id === 'leave_approvals' && role === 'parent') {
       return { ...card, route: '/(parent)/leave-approval' };
+    }
+    // Route parents to attendance history
+    if (card.id === 'history' && role === 'parent') {
+      return { ...card, route: '/(parent)/attendance-history' };
+    }
+    // Route students to personalized attendance history
+    if (card.id === 'history' && role === 'student') {
+      return { ...card, route: '/(student)/attendance' };
+    }
+    // Route parents to timetable
+    if (card.id === 'timetable' && role === 'parent') {
+      return { ...card, route: '/(parent)/timetable' };
     }
     return card;
   });

@@ -29,6 +29,7 @@ export type AttendanceRecord = {
   confidence: number;
   className: string;
   timeSlot: string;
+  subject: string;
   sessionId?: string;
 };
 
@@ -108,7 +109,7 @@ export const addStudent = async (student: Student) => {
       ],
     );
   } finally {
-    await db.execAsync("PRAGMA foreign_keys = ON;");
+    await db.execAsync("PRAGMA foreign_keys = OFF;");
   }
 };
 
@@ -133,7 +134,7 @@ export const updateStudent = async (student: Student) => {
       ],
     );
   } finally {
-    await db.execAsync("PRAGMA foreign_keys = ON;");
+    await db.execAsync("PRAGMA foreign_keys = OFF;");
   }
 };
 
@@ -168,7 +169,7 @@ export const addTeacher = async (teacher: Teacher) => {
       [teacher.id, teacher.schoolId || 'S001', teacher.name, teacher.phone, teacher.pin, teacher.faceData || null]
     );
   } finally {
-    await db.execAsync("PRAGMA foreign_keys = ON;");
+    await db.execAsync("PRAGMA foreign_keys = OFF;");
   }
   
   const verify = await db.getFirstAsync<any>("SELECT id FROM teachers WHERE id = ?;", [teacher.id]);
@@ -210,6 +211,7 @@ export const getTeacherById = async (id: string): Promise<Teacher | null> => {
 
 export const addParent = async (parent: { id: string; name: string; phone: string; pin: string; studentId?: string }) => {
   const db = await dbPromise;
+  await db.execAsync("PRAGMA foreign_keys = OFF;");
   await db.runAsync(
     "INSERT OR REPLACE INTO parents (id, name, phone, pin, student_id) VALUES (?, ?, ?, ?, ?);",
     [parent.id, parent.name, parent.phone, parent.pin, parent.studentId || null]
@@ -231,15 +233,45 @@ export const findStudentsByParentPhone = async (phone: string): Promise<Student[
 
 export const addGrade = async (grade: { id: string; studentId: string; subject: string; marks: number; totalMarks: number; examType: string; date: string }) => {
   const db = await dbPromise;
+  await db.execAsync("PRAGMA foreign_keys = OFF;");
   await db.runAsync(
-    "INSERT INTO grades (id, student_id, subject, marks, total_marks, exam_type, date) VALUES (?, ?, ?, ?, ?, ?, ?);",
+    "INSERT OR REPLACE INTO grades (id, student_id, subject, marks, total_marks, exam_type, date) VALUES (?, ?, ?, ?, ?, ?, ?);",
     [grade.id, grade.studentId, grade.subject, grade.marks, grade.totalMarks, grade.examType, grade.date]
   );
+};
+
+export const batchAddGrades = async (grades: Array<{ id: string; studentId: string; subject: string; marks: number; totalMarks: number; examType: string; date: string }>) => {
+  const db = await dbPromise;
+  await db.execAsync("PRAGMA foreign_keys = OFF;");
+  await db.execAsync("BEGIN TRANSACTION;");
+  try {
+    for (const g of grades) {
+      await db.runAsync(
+        "INSERT OR REPLACE INTO grades (id, student_id, subject, marks, total_marks, exam_type, date) VALUES (?, ?, ?, ?, ?, ?, ?);",
+        [g.id, g.studentId, g.subject, g.marks, g.totalMarks, g.examType, g.date]
+      );
+    }
+    await db.execAsync("COMMIT;");
+  } catch (e) {
+    await db.execAsync("ROLLBACK;");
+    throw e;
+  }
 };
 
 export const getGradesForStudent = async (studentId: string) => {
   const db = await dbPromise;
   return db.getAllAsync<any>("SELECT * FROM grades WHERE student_id = ? ORDER BY date DESC;", [studentId]);
+};
+
+export const getGradesByClassAndSubject = async (className: string, subject: string, examType: string) => {
+  const db = await dbPromise;
+  return db.getAllAsync<any>(
+    `SELECT g.* 
+     FROM grades g 
+     JOIN students s ON g.student_id = s.id 
+     WHERE s.class_name = ? AND g.subject = ? AND g.exam_type = ?;`,
+    [className, subject, examType]
+  );
 };
 
 // --- Attendance Methods ---
@@ -262,16 +294,17 @@ export const getAttendanceHistory = async (): Promise<
     date: string;
     className: string;
     timeSlot: string;
+    subject: string;
     present: number;
     absent: number;
     total: number;
   }>(
-    `SELECT date, class_name as className, time_slot as timeSlot,
+    `SELECT date, class_name as className, time_slot as timeSlot, subject,
             SUM(CASE WHEN status = 'Present' OR status = 'Verified' OR status = 'present' THEN 1 ELSE 0 END) as present,
             SUM(CASE WHEN status = 'Absent' OR status = 'absent' THEN 1 ELSE 0 END) as absent,
             COUNT(*) as total
      FROM attendance_records
-     GROUP BY date, class_name, time_slot
+     GROUP BY date, class_name, time_slot, subject
      ORDER BY date DESC, time_slot DESC;`,
   );
   return rows;
@@ -282,7 +315,7 @@ export const saveAttendanceRecord = async (record: AttendanceRecord) => {
   await db.execAsync("PRAGMA foreign_keys = OFF;");
   try {
       await db.runAsync(
-        "INSERT OR REPLACE INTO attendance_records (id, student_id, date, time, status, confidence, class_name, time_slot, session_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);",
+        "INSERT OR REPLACE INTO attendance_records (id, student_id, date, time, status, confidence, class_name, time_slot, subject, session_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
         [
           String(record.id || ""),
           String(record.studentId || ""),
@@ -292,11 +325,13 @@ export const saveAttendanceRecord = async (record: AttendanceRecord) => {
           Number(record.confidence || 1.0),
           String(record.className || ""),
           String(record.timeSlot || ""),
+          String(record.subject || ""),
           String(record.sessionId || "")
         ],
       );
-  } finally {
-      await db.execAsync("PRAGMA foreign_keys = ON;");
+  } catch (e) {
+    console.error("[DB] saveAttendanceRecord failed", e);
+    throw e;
   }
 };
 
@@ -308,7 +343,7 @@ export const bulkSaveAttendance = async (records: AttendanceRecord[]) => {
   
   await db.execAsync("BEGIN TRANSACTION;");
   try {
-    const query = "INSERT OR REPLACE INTO attendance_records (id, student_id, date, time, status, confidence, class_name, time_slot, session_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
+    const query = "INSERT OR REPLACE INTO attendance_records (id, student_id, date, time, status, confidence, class_name, time_slot, subject, session_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
     for (const record of records) {
       await db.runAsync(query, [
         String(record.id || ""),
@@ -319,6 +354,7 @@ export const bulkSaveAttendance = async (records: AttendanceRecord[]) => {
         Number(record.confidence || 1.0),
         String(record.className || ""),
         String(record.timeSlot || ""),
+        String(record.subject || ""),
         String(record.sessionId || "")
       ]);
     }

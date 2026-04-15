@@ -1,5 +1,6 @@
 import { MarathiText } from "@/components/MarathiText";
 import { leaveRepo } from "@/services/db/leaveRepo";
+import { attendanceRepo } from "@/services/db/attendanceRepo";
 import { useAuthStore } from "@/store/authStore";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -28,24 +29,54 @@ export default function LeaveApprovalsScreen() {
     }[]
   >([]);
   const [loading, setLoading] = useState(true);
+  const [classes, setClasses] = useState<{ id: string; class_name: string }[]>([]);
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!user?.classId) {
+    if (!selectedClassId) {
       setRequests([]);
       setLoading(false);
       return;
     }
     try {
-      const rows = await leaveRepo.getPendingForClass(user.classId);
+      const rows = await leaveRepo.getPendingForClass(selectedClassId);
       setRequests(rows);
     } finally {
       setLoading(false);
     }
-  }, [user?.classId]);
+  }, [selectedClassId]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    const loadClasses = async () => {
+        if (!user) return;
+        try {
+            const available = await attendanceRepo.getClassesForTeacher(user.id);
+            const uniqueClasses = [...available];
+            
+            // Check for orphaned/unknown leaves
+            const ghostLeaves = await leaveRepo.getPendingForClass("Unknown Class");
+            if (ghostLeaves.length > 0) {
+                uniqueClasses.push({ id: "Unknown Class", class_name: "अज्ञात (Other)" });
+            }
+
+            setClasses(uniqueClasses);
+            if (uniqueClasses.length > 0 && !selectedClassId) {
+                setSelectedClassId(uniqueClasses[0].id);
+            } else if (uniqueClasses.length === 0) {
+                setLoading(false);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
+    loadClasses();
+  }, [user]);
+
+  useEffect(() => {
+    if (selectedClassId) {
+        load();
+    }
+  }, [load, selectedClassId]);
 
   const handleApprove = async (id: string) => {
     try {
@@ -77,6 +108,31 @@ export default function LeaveApprovalsScreen() {
           Leave Approvals
         </MarathiText>
         <View style={{ width: 28 }} />
+      </View>
+
+      <View style={styles.classSelector}>
+        <FlatList
+          data={classes}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[
+                styles.classTab,
+                selectedClassId === item.id && styles.activeClassTab,
+              ]}
+              onPress={() => setSelectedClassId(item.id)}
+            >
+              <MarathiText
+                bold={selectedClassId === item.id}
+                color={selectedClassId === item.id ? "#fff" : "#1f2937"}
+              >
+                {item.class_name}
+              </MarathiText>
+            </TouchableOpacity>
+          )}
+        />
       </View>
 
       {loading ? (
@@ -180,5 +236,22 @@ const styles = StyleSheet.create({
   },
   rejectBtn: { borderWidth: 1, borderColor: "#ef4444" },
   approveBtn: { backgroundColor: "#0d9488" },
+  classSelector: {
+    backgroundColor: "#fff",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f3f4f6",
+  },
+  classTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#f3f4f6",
+    marginRight: 8,
+  },
+  activeClassTab: {
+    backgroundColor: "#0d9488",
+  },
   empty: { marginTop: 100, alignItems: "center" },
 });

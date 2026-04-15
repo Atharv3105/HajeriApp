@@ -2,6 +2,8 @@ import { MarathiText } from "@/components/MarathiText";
 import { StudentCard } from "@/components/StudentCard";
 import { t } from "@/localization";
 import { getStudents, getStudentsByClass, bulkSaveAttendance, AttendanceRecord } from "@/services/databaseService";
+import { attendanceRepo } from "@/services/db/attendanceRepo";
+import { leaveRepo } from "@/services/db/leaveRepo";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -20,8 +22,10 @@ export default function ScanResultScreen() {
   const params = useLocalSearchParams();
   const className = params.className as string;
   const timeSlot = params.timeSlot as string;
+  const subject = params.subject as string;
   const [students, setStudents] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [approvedLeaveIds, setApprovedLeaveIds] = useState<string[]>([]);
 
   const detectedIds = useMemo(() => {
     if (!params.detected) return [];
@@ -33,11 +37,23 @@ export default function ScanResultScreen() {
   }, [params.detected]);
 
   useEffect(() => {
-    if (className) {
-        getStudentsByClass(className).then(setStudents);
-    } else {
-        getStudents().then(setStudents);
-    }
+    const load = async () => {
+        const today = new Date().toISOString().split('T')[0];
+        if (className) {
+            const rows = await getStudentsByClass(className);
+            setStudents(rows);
+            
+            try {
+                const leaveIds = await leaveRepo.getApprovedLeaveStudentIds(className, today);
+                setApprovedLeaveIds(leaveIds);
+            } catch (err) {
+                console.error("Failed to fetch approved leaves:", err);
+            }
+        } else {
+            getStudents().then(setStudents);
+        }
+    };
+    load();
   }, [className]);
 
   const missingStudents = students.filter(
@@ -50,19 +66,34 @@ export default function ScanResultScreen() {
         const date = new Date().toISOString().split('T')[0];
         const time = new Date().toLocaleTimeString();
         
-        const records: AttendanceRecord[] = students.map(s => ({
-            id: `ATT-${s.id}-${Date.now()}`,
-            studentId: s.id,
-            date,
-            time,
-            status: detectedIds.includes(s.id) ? "Present" : "Absent",
-            confidence: 1.0,
-            className: className || s.className,
-            timeSlot: timeSlot || "General"
-        }));
+        const records: AttendanceRecord[] = students.map(s => {
+            const isDetected = detectedIds.includes(s.id);
+            const isOnLeave = !isDetected && approvedLeaveIds.includes(s.id);
+            
+            return {
+                id: `ATT-${s.id}-${Date.now()}`,
+                studentId: s.id,
+                date,
+                time,
+                status: isDetected ? "Present" : (isOnLeave ? "Leave" : "Absent"),
+                confidence: 1.0,
+                className: className || s.className,
+                timeSlot: timeSlot || "General",
+                subject: subject || "General",
+                method: isDetected ? "Face" : (isOnLeave ? "Approved Leave" : "Manual")
+            };
+        });
 
         await bulkSaveAttendance(records);
-        Alert.alert("Success", "Attendance saved to history successfully!");
+
+        // Trigger parent notifications
+        try {
+            await attendanceRepo.sendAttendanceNotifications(records as any);
+        } catch (notifierError) {
+            console.warn("Notification engine failed:", notifierError);
+        }
+
+        Alert.alert("यशस्वी (Success)", "हजेरी जतन केली गेली आहे.");
         router.replace("/(app)/dashboard");
     } catch (e: any) {
         console.error("Auto Save Error:", e);
@@ -76,7 +107,7 @@ export default function ScanResultScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
           <MarathiText bold size={24} color="#0f172a">हजेरी निकाल ({className})</MarathiText>
-          <MarathiText size={14} color="#64748b">{timeSlot}</MarathiText>
+          <MarathiText size={14} color="#64748b">{subject} • {timeSlot}</MarathiText>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -103,15 +134,18 @@ export default function ScanResultScreen() {
                     <MarathiText color="#10b981" style={{ marginTop: 8 }}>All students are present!</MarathiText>
                 </View>
             ) : (
-                missingStudents.slice(0, 10).map((student) => (
-                    <StudentCard
-                      key={student.id}
-                      name={student.name}
-                      rollNumber={student.rollNumber}
-                      status={t("scan.missing")}
-                      badgeColor="#dc2626"
-                    />
-                  ))
+                missingStudents.slice(0, 10).map((student) => {
+                    const isOnLeave = approvedLeaveIds.includes(student.id);
+                    return (
+                        <StudentCard
+                          key={student.id}
+                          name={student.name}
+                          rollNumber={student.rollNumber}
+                          status={isOnLeave ? (t("history.leave") || "Leave") : t("scan.missing")}
+                          badgeColor={isOnLeave ? "#d97706" : "#dc2626"}
+                        />
+                    );
+                })
             )}
         </View>
 
@@ -139,7 +173,8 @@ export default function ScanResultScreen() {
                 missing: JSON.stringify(missingStudents.map(s => s.id)),
                 detected: JSON.stringify(detectedIds),
                 className,
-                timeSlot
+                timeSlot,
+                subject
               },
             } as any)
           }

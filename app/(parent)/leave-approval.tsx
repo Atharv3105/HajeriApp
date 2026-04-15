@@ -68,7 +68,7 @@ export default function LeaveApprovalScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.replace("/(parent)/attendance-history")} style={styles.backBtn}>
           <MaterialCommunityIcons name="arrow-left" size={28} color="#db2777" />
         </TouchableOpacity>
         <MarathiText bold size={22} color="#db2777">

@@ -1,5 +1,6 @@
 import { MarathiText } from "@/components/MarathiText";
 import { attendanceRepo } from "@/services/db/attendanceRepo";
+import { useAuthStore } from "@/store/authStore";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -8,6 +9,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ParentAlertsScreen() {
   const router = useRouter();
+  const { user } = useAuthStore();
   const [notifications, setNotifications] = useState<
     {
       id: number;
@@ -19,26 +21,48 @@ export default function ParentAlertsScreen() {
 
   useEffect(() => {
     const loadNotifications = async () => {
+      if (!user) return;
+      
+      let currentStudentId = user.studentId;
+
+      // CRITICAL FALLBACK: If studentId is missing (stale session), 
+      // attempt to recover it using the parent's phone number
+      if (!currentStudentId && user.phone) {
+        try {
+          const students = await attendanceRepo.getStudentsByParentPhone(user.phone);
+          if (students.length > 0) {
+            currentStudentId = students[0].id;
+            // Update the store so navigation/subsequent loads work correctly
+            useAuthStore.getState().setUser({ ...user, studentId: currentStudentId }, useAuthStore.getState().token || "");
+            console.log("[Alerts] Successfully recovered missing student context for parent.");
+          }
+        } catch (e) {
+          console.error("[Alerts] Failed to recover studentId", e);
+        }
+      }
+
+      if (!currentStudentId) return;
+
       try {
-        const items = await attendanceRepo.getParentNotifications();
+        const items = await attendanceRepo.getParentNotifications(currentStudentId);
         setNotifications(items);
       } catch (error) {
-        console.error(error);
+        console.error("[Alerts] Failed to load notifications", error);
       }
     };
     loadNotifications();
-  }, []);
+  }, [user]);
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.replace("/(parent)/dashboard" as any)} style={styles.backBtn}>
           <MaterialCommunityIcons name="arrow-left" size={24} color="#374151" />
         </TouchableOpacity>
-        <MarathiText bold size={22} color="#374151">
-          सूचना
+        <MarathiText bold size={22} color="#0f172a">
+          सूचना (Alerts)
         </MarathiText>
-        <View style={{ width: 24 }} />
+        <View style={{ width: 44 }} />
       </View>
 
       <FlatList
@@ -52,32 +76,36 @@ export default function ParentAlertsScreen() {
           });
           return (
             <View style={styles.card}>
-              <View style={styles.badge}>
-                <MaterialCommunityIcons
-                  name="bell-ring"
-                  size={20}
-                  color="#fff"
-                />
+              <View style={styles.cardAccent} />
+              <View style={styles.cardContent}>
+                  <View style={styles.cardHeader}>
+                    <View style={styles.iconContainer}>
+                        <MaterialCommunityIcons name="bell-badge-outline" size={20} color="#db2777" />
+                    </View>
+                    <MarathiText size={12} color="#9ca3af">{timestamp}</MarathiText>
+                  </View>
+                  
+                  <View style={styles.cardBody}>
+                    <MarathiText bold size={17} color="#111827" style={{ marginBottom: 4 }}>
+                      {item.title_mr}
+                    </MarathiText>
+                    <MarathiText size={14} color="#4b5563" style={{ lineHeight: 20 }}>
+                      {item.body_mr}
+                    </MarathiText>
+                  </View>
+
+                  <View style={styles.cardFooter}>
+                    <MarathiText bold size={11} color="#db2777">नवीन सूचना (New Update)</MarathiText>
+                  </View>
               </View>
-              <View style={styles.cardText}>
-                <MarathiText bold size={16} color="#111827">
-                  {item.title_mr}
-                </MarathiText>
-                <MarathiText size={14} color="#6b7280" style={{ marginTop: 6 }}>
-                  {item.body_mr}
-                </MarathiText>
-              </View>
-              <MarathiText size={12} color="#9ca3af">
-                {timestamp}
-              </MarathiText>
             </View>
           );
         }}
         ListEmptyComponent={() => (
           <View style={styles.emptyState}>
-            <MarathiText size={16} color="#6b7280">
-              कोणतीही नवीन सूचना नाही.
-            </MarathiText>
+            <MaterialCommunityIcons name="bell-off-outline" size={60} color="#e5e7eb" />
+            <MarathiText bold size={18} color="#9ca3af" style={{ marginTop: 16 }}>कोणतीही सूचना नाही</MarathiText>
+            <MarathiText size={14} color="#d1d5db">येथे तुम्हाला तुमच्या पाल्याशी संबंधित सूचना मिळतील.</MarathiText>
           </View>
         )}
       />
@@ -90,37 +118,42 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 20,
+    justifyContent: "space-between",
+    padding: 16,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#e5e7eb",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
   },
   backBtn: {
-    padding: 8,
-    marginRight: 12,
+    padding: 10,
     backgroundColor: "#f3f4f6",
-    borderRadius: 12,
+    borderRadius: 14,
   },
-  list: { padding: 20 },
+  list: { padding: 16, paddingBottom: 40 },
   card: {
-    flexDirection: "row",
-    alignItems: "center",
     backgroundColor: "#fff",
-    padding: 18,
     borderRadius: 20,
     marginBottom: 16,
+    flexDirection: 'row',
+    overflow: 'hidden',
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
+    borderColor: '#f1f5f9',
   },
-  badge: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#db2777",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 14,
-  },
-  cardText: { flex: 1 },
-  emptyState: { padding: 40, alignItems: "center" },
+  cardAccent: { width: 6, backgroundColor: '#db2777' },
+  cardContent: { flex: 1, padding: 16 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  iconContainer: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#fdf2f8', justifyContent: 'center', alignItems: 'center' },
+  cardBody: { marginBottom: 16 },
+  cardFooter: { borderTopWidth: 1, borderTopColor: '#f9fafb', paddingTop: 12 },
+  emptyState: { padding: 60, alignItems: "center", marginTop: 40 },
 });

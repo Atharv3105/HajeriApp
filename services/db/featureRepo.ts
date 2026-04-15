@@ -110,7 +110,7 @@ export const featureRepo = {
       teacher_name: string | null;
       room: string | null;
     }>(
-      `SELECT id, class_name, day_of_week, period_number, subject, teacher_name, room
+      `SELECT id, class_name, class_id, day_of_week, period_number, subject, teacher_name, room
        FROM timetable_entries
        WHERE class_name = ?
        ORDER BY CASE day_of_week
@@ -135,9 +135,9 @@ export const featureRepo = {
   }) {
     const db = await dbPromise;
     await db.runAsync(
-      `INSERT INTO timetable_entries (class_name, day_of_week, period_number, subject, teacher_name, room)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [entry.className, entry.dayOfWeek, entry.periodNumber, entry.subject, entry.teacherName || null, entry.room || null]
+      `INSERT INTO timetable_entries (class_name, class_id, day_of_week, period_number, subject, teacher_name, room)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [entry.className, entry.className, entry.dayOfWeek, entry.periodNumber, entry.subject, entry.teacherName || null, entry.room || null]
     );
   },
 

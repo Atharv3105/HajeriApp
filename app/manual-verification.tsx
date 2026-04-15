@@ -6,6 +6,8 @@ import {
     bulkSaveAttendance,
     AttendanceRecord
 } from "@/services/databaseService";
+import { attendanceRepo } from "@/services/db/attendanceRepo";
+import { leaveRepo } from "@/services/db/leaveRepo";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
@@ -28,6 +30,7 @@ export default function ManualVerificationScreen() {
   
   const className = params.className as string;
   const timeSlot = params.timeSlot as string;
+  const subject = params.subject as string;
   
   const [loading, setLoading] = useState(true);
   const [students, setStudents] = useState<any[]>([]);
@@ -47,13 +50,20 @@ export default function ManualVerificationScreen() {
   useEffect(() => {
     const load = async () => {
         try {
-            const rows = await getStudentsByClass(className);
+            const today = new Date().toISOString().split('T')[0];
+            const [rows, leaveIds] = await Promise.all([
+                getStudentsByClass(className),
+                leaveRepo.getApprovedLeaveStudentIds(className, today).catch(() => [] as string[])
+            ]);
+            
             setStudents(rows);
             
             // Initialize attendance state
             const initial: Record<string, AttendanceStatus> = {};
             rows.forEach(s => {
-                initial[s.id] = detectedIds.includes(s.id) ? "Present" : "Absent";
+                const isDetected = detectedIds.includes(s.id);
+                const isOnLeave = !isDetected && leaveIds.includes(s.id);
+                initial[s.id] = isDetected ? "Present" : (isOnLeave ? "Leave" : "Absent");
             });
             setAttendance(initial);
         } finally {
@@ -89,10 +99,19 @@ export default function ManualVerificationScreen() {
             status: (attendance[s.id] as any) || "Absent",
             confidence: 1.0,
             className: className || s.className,
-            timeSlot: timeSlot || "Manual"
+            timeSlot: timeSlot || "Manual",
+            subject: subject || "General"
         }));
 
         await bulkSaveAttendance(records);
+
+        // Trigger parent notifications
+        try {
+            await attendanceRepo.sendAttendanceNotifications(records as any);
+        } catch (notifierError) {
+            console.warn("Notification engine failed:", notifierError);
+        }
+
         Alert.alert("यशस्वी", "हजेरी जतन केली गेली आहे.");
         router.replace("/(app)/dashboard");
     } catch (e: any) {
@@ -124,7 +143,7 @@ export default function ManualVerificationScreen() {
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <MarathiText bold size={20} color="#0f172a">मॅन्युअली हजेरी (Manual Override)</MarathiText>
-            <MarathiText size={14} color="#64748b">{className} • {timeSlot}</MarathiText>
+            <MarathiText size={14} color="#64748b">{className} • {subject} • {timeSlot}</MarathiText>
           </View>
       </View>
 

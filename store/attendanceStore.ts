@@ -30,7 +30,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
 
   markStudent: (studentId, status, method) => {
     const newRecords = new Map(get().records);
-    newRecords.set(studentId, { student_id: studentId, status, method });
+    newRecords.set(studentId, { studentId: studentId, status, method } as any);
     set({ records: newRecords });
   },
 

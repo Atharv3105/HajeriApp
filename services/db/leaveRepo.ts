@@ -62,11 +62,12 @@ export const leaveRepo = {
     const id = Crypto.randomUUID();
 
     await db.runAsync(
-      "INSERT INTO leave_requests (id, student_id, class_name, from_date, to_date, reason_code, reason_text, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO leave_requests (id, student_id, class_name, class_id, from_date, to_date, reason_code, reason_text, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [
         id,
         studentId,
         className,
+        className, // class_id
         fromDate,
         toDate,
         reasonCode,
@@ -166,5 +167,17 @@ export const leaveRepo = {
       "UPDATE leave_requests SET status = ?, rejected_by = ?, rejected_reason = ? WHERE id = ?",
       ["rejected", by, reason, leaveId],
     );
+  },
+
+  async getApprovedLeaveStudentIds(className: string, date: string): Promise<string[]> {
+    const db = await dbPromise;
+    const rows = await db.getAllAsync<{ student_id: string }>(
+      `SELECT student_id FROM leave_requests 
+       WHERE class_name = ? 
+       AND status = 'teacher_approved' 
+       AND ? BETWEEN from_date AND to_date`,
+      [className, date],
+    );
+    return rows.map((r) => r.student_id);
   },
 };

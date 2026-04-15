@@ -26,15 +26,23 @@ const TIME_SLOTS = [
 export default function AttendanceSetupScreen() {
     const router = useRouter();
     const [className, setClassName] = useState("");
+    const [subject, setSubject] = useState("");
     const [selectedSlot, setSelectedSlot] = useState(TIME_SLOTS[0]);
 
     const handleStartScan = () => {
         if (!className.trim()) {
             return alert("पहिले वर्गाचे नाव भरा (Please enter class name)");
         }
+        if (!subject.trim()) {
+            return alert("पहिले विषयाचे नाव भरा (Please enter subject name)");
+        }
         router.push({
             pathname: "/face-scan",
-            params: { className: className.trim(), timeSlot: selectedSlot }
+            params: { 
+                className: className.trim(), 
+                timeSlot: selectedSlot,
+                subject: subject.trim() 
+            }
         } as any);
     };
 
@@ -59,6 +67,21 @@ export default function AttendanceSetupScreen() {
                             style={styles.input} 
                             value={className}
                             onChangeText={setClassName}
+                        />
+                    </View>
+                </View>
+
+                <View style={styles.card}>
+                    <MarathiText bold size={18} color="#374151" style={{ marginBottom: 12 }}>
+                        विषयाचे नाव लिहा (Enter Subject)
+                    </MarathiText>
+                    <View style={styles.inputGroup}>
+                        <MaterialCommunityIcons name="book-open-variant" size={24} color="#0d9488" style={{ marginRight: 12 }} />
+                        <TextInput 
+                            placeholder="उदा. मराठी, गणित" 
+                            style={styles.input} 
+                            value={subject}
+                            onChangeText={setSubject}
                         />
                     </View>
                 </View>

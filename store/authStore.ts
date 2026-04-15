@@ -10,6 +10,9 @@ export interface User {
   role: Role;
   schoolId?: string;
   classId?: string;
+  className?: string;
+  studentId?: string;
+  phone?: string;
 }
 
 interface AuthState {

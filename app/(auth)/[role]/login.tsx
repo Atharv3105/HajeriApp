@@ -25,6 +25,7 @@ import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from "react-native-safe-area-context";
 import { findTeacherByPhone, findTeacherByPIN, findStudentByPIN, getStudentById, getTeacherById, findParentByPhone, findStudentsByParentPhone, addParent } from "@/services/databaseService";
 import { verifyFaceViaAPI } from "@/services/faceRecognitionService";
+import { useIsFocused } from "@react-navigation/native";
 
 const { width } = Dimensions.get("window");
  
@@ -58,6 +59,7 @@ export default function RoleLoginScreen() {
   const { setUser } = useAuthStore();
   const cameraRef = React.useRef<any>(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
+  const isFocused = useIsFocused();
 
   const handleLoginSuccess = (user: any) => {
     setUser(user, "real_token");
@@ -107,8 +109,8 @@ export default function RoleLoginScreen() {
 
   // Automatic Face Scanning (Reverted to stable interval polling)
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (mode === 'face' && permission?.granted && !isAuthenticating && !isMatched && isCameraReady) {
+    let interval: any;
+    if (isFocused && mode === 'face' && permission?.granted && !isAuthenticating && !isMatched && isCameraReady) {
       interval = setInterval(async () => {
         const now = Date.now();
         if (now - lastScanTime > 3000) { // Scan every 3 seconds
@@ -117,7 +119,7 @@ export default function RoleLoginScreen() {
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [mode, permission, isAuthenticating, lastScanTime, isMatched, isCameraReady]);
+  }, [isFocused, mode, permission, isAuthenticating, lastScanTime, isMatched, isCameraReady]);
 
   const autoFaceLogin = async () => {
     if (!cameraRef.current || isAuthenticating || isMatched || !isCameraReady) return;
@@ -141,40 +143,51 @@ export default function RoleLoginScreen() {
             setScanStatus("success");
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             
-            // 1. If the server says the role matches our screen, log in immediately
-            if (matchedRole === role) {
-                if (role === 'teacher') {
-                    const teacher = await getTeacherById(studentId);
-                    if (teacher) {
-                        setIsMatched(true);
-                        handleLoginSuccess({ id: teacher.id, name: teacher.name, role: "teacher" });
-                        return;
-                    }
-                } else {
-                    const student = await getStudentById(studentId);
-                    if (student) {
-                        setIsMatched(true);
-                        if (role === 'parent') {
-                            handleLoginSuccess({ id: student.id, name: `Parent of ${student.name}`, role: "parent", studentId: student.id });
-                        } else {
-                            handleLoginSuccess({ id: student.id, name: student.name, role: "student" });
-                        }
-                        return;
-                    }
-                }
+            // Cross-Role Recognition & Local DB Verification
+            // We prioritize the local DB presence over the server's role label
+            const localTeacher = await getTeacherById(studentId);
+            const localStudent = await getStudentById(studentId);
+
+            if (role === 'teacher' && localTeacher) {
+                setIsMatched(true);
+                handleLoginSuccess({ id: localTeacher.id, name: localTeacher.name, role: "teacher" });
+                return;
+            } 
+            
+            if (role === 'student' && localStudent) {
+                setIsMatched(true);
+                handleLoginSuccess({ 
+                    id: localStudent.id, 
+                    name: localStudent.name, 
+                    role: "student",
+                    className: localStudent.className 
+                });
+                return;
             }
 
-            // 2. Cross-Role Recognition (Server-Verified)
-            // If the server matched a different role, inform the user clearly
-            if (matchedRole === 'teacher' && role === 'student') {
-                Alert.alert("भूमिका तपासा (Role Selection)", "तुमची नोंदणी 'शिक्षक' म्हणून झालेली आहे. कृपया शिक्षक म्हणून लॉगिन करा.");
-                setScanStatus("fail");
-            } else if (matchedRole === 'student' && role === 'teacher') {
-                Alert.alert("भूमिका तपासा", "आपली नोंदणी 'विद्यार्थी' म्हणून आहे.");
+            if (role === 'parent' && localStudent) {
+                setIsMatched(true);
+                handleLoginSuccess({ 
+                    id: localStudent.id, 
+                    name: `Parent of ${localStudent.name}`, 
+                    role: "parent", 
+                    studentId: localStudent.id,
+                    className: localStudent.className
+                });
+                return;
+            }
+
+            // If we are here, the server found a match, but the local DB doesn't have it FOR THIS ROLE
+            if (matchedRole !== role) {
+                if (matchedRole === 'teacher') {
+                    Alert.alert("भूमिका तपासा", "तुमची नोंदणी 'शिक्षक' म्हणून झालेली आहे. कृपया शिक्षक म्हणून लॉगिन करा.");
+                } else if (matchedRole === 'student') {
+                    Alert.alert("भूमिका तपासा", "आपली नोंदणी 'विद्यार्थी' म्हणून आहे.");
+                }
                 setScanStatus("fail");
             } else {
-                // This covers weird cases where ID exists but local DB is missing it
                 console.log(`[FaceLogin] ID ${studentId} matched but local DB is missing it.`);
+                Alert.alert("ओळख पटली नाही", "तुमचा चेहरा ओळखला गेला आहे, पण या डिव्हाइसवर तुमची माहिती उपलब्ध नाही. कृपया पिन वापरून किंवा पुन्हा नोंदणी करून लॉगिन करा.");
                 setScanStatus("fail");
             }
         } else {
@@ -219,7 +232,7 @@ export default function RoleLoginScreen() {
           if (onboardingStep === 'pin_entry') {
             const p = await findParentByPhone(phoneNumber);
             if (p && p.pin === nextPin) {
-                handleLoginSuccess({ id: p.id, name: p.name, role: 'parent', studentId: p.studentId });
+                handleLoginSuccess({ id: p.id, name: p.name, role: 'parent', studentId: p.studentId, phone: phoneNumber });
             } else {
                 Alert.alert("त्रुटी", "पिन चुकीचा आहे.");
                 setPin("");
@@ -241,7 +254,7 @@ export default function RoleLoginScreen() {
                   };
                   await addParent(newParent);
                   Alert.alert("यशस्वी", "आपला पिन यशस्वीरित्या सेट झाला आहे!");
-                  handleLoginSuccess({ ...newParent, role: 'parent' });
+                  handleLoginSuccess({ ...newParent, role: 'parent', className: firstStudent.className });
               } else {
                   Alert.alert("त्रुटी", "पिन जुळत नाही. कृपया पुन्हा प्रयत्न करा.");
                   setPin("");
@@ -251,7 +264,12 @@ export default function RoleLoginScreen() {
       } else {
           const student = await findStudentByPIN(nextPin);
           if (student) {
-              handleLoginSuccess({ id: student.id, name: student.name, role: "student" });
+              handleLoginSuccess({ 
+                id: student.id, 
+                name: student.name, 
+                role: "student",
+                className: student.className
+              });
           } else {
               Alert.alert("त्रुटी", "पिन चुकीचा आहे.");
               setPin("");
@@ -309,7 +327,7 @@ export default function RoleLoginScreen() {
 
       {mode === "face" ? (
         <View style={styles.cameraContainer}>
-          {permission?.granted ? (
+          {(permission?.granted && isFocused) ? (
             <View style={{ flex: 1 }}>
               <CameraView 
                 ref={cameraRef} 

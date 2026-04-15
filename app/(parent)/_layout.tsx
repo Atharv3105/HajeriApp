@@ -24,7 +24,7 @@ export default function ParentLayout() {
       }}
     >
       <Tabs.Screen
-        name="home"
+        name="attendance-history"
         options={{
           title: 'माझे मूल', // My Child in Marathi
           tabBarIcon: ({ color, size }) => (
@@ -44,11 +44,11 @@ export default function ParentLayout() {
         }}
       />
       <Tabs.Screen
-        name="attendance-history"
+        name="timetable"
         options={{
-          title: 'हजेरी', // Attendance in Marathi
+          title: 'वेळापत्रक',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="calendar-month-outline" size={32} color={color} />
+            <MaterialCommunityIcons name="calendar-clock" size={32} color={color} />
           ),
         }}
       />
@@ -61,9 +61,11 @@ export default function ParentLayout() {
           ),
         }}
       />
+      
+      {/* Explicitly Hiding unwanted/duplicate modules */}
       <Tabs.Screen name="bus" options={{ href: null }} />
-      <Tabs.Screen name="chat" options={{ href: null }} />
       <Tabs.Screen name="meal" options={{ href: null }} />
+      <Tabs.Screen name="chat" options={{ href: null }} />
       <Tabs.Screen name="settings" options={{ href: null }} />
     </Tabs>
   );
